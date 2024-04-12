@@ -29,8 +29,9 @@ def unnest_all(self: pl.DataFrame, seperator="."):
     return self
 
 pl.DataFrame.unnest_all = unnest_all
+pl.LazyFrame.unnest_all = unnest_all
 
-class Field:
+class Field(object):
     exprs: List[pl.Expr] = []
     
     def __init__(self, *inputs, **kwargs):
@@ -116,10 +117,10 @@ class Model(pl.DataFrame, metaclass=PlModelMeta):
         return [field for field in self.__fields__ if field not in self._derived]
 
 
-    def _valid_exprs(self):
+    def _valid_exprs(self, lf: pl.LazyFrame):
         exprs = []
         for field in self._underived:
-            expr = field.derivable(self.columns)
+            expr = field.derivable(lf.columns)
             if expr is not None:
                 exprs.append(expr)
                 self._derived.append(field)
@@ -130,17 +131,19 @@ class Model(pl.DataFrame, metaclass=PlModelMeta):
         if self.is_empty():
             self._df = pl.DataFrame(schema={field.name: field.dtype for field in self.__fields__})._df
             return
+        lf = self.lazy()
         for n in count():
             if n > self.__iter_max__:
                 raise RuntimeError(
                     f"Failed to derive columns {self._underived}. Exceeded maximum {self.__iter_max__} derivation iterations."
                 )
-            exprs = self._valid_exprs()
+            exprs = self._valid_exprs(lf)
             if not exprs:
                 break
-            self._df = self.with_columns(exprs)._df
+            lf = lf.with_columns(exprs)
         literals = [field.literal for field in self._underived]
-        self._df = self.with_columns(literals).select(sorted(self.new_cols))._df
+        lf = lf.with_columns(literals).select(sorted(self.new_cols))
+        self._df = lf.collect()._df
     
     
     def with_columns(self, *exprs: Any, **named_exprs: Any):

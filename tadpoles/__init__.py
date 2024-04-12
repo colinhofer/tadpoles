@@ -1,1 +1,1 @@
-from .main import Tadpol, Field, field
+from .main import Model, Field, field
