@@ -8,7 +8,7 @@ Tadpoles is a Python package that extends the functionality of the polars librar
   
 - **Column Derivation**: Tadpoles derives columns based on specified expressions, streamlining the process of ingesting complex data structures. Column derivation is done in groups only for expressions with available sources, allowing derived that reference other derived columns.
 
-- **Nothing but Polars**: Built as an extension of the Polars library, Tadpoles has no other dependencies.
+- **Nothing but Polars**: Built as an extension of the Polars library, Tadpoles has no other dependencies. Tadpoles takes advantage of Polars laziness when deriving columns, compiling the full expression before collecting.
 
 - **Multiple Expressions for One Column**: Add flexibility to your model by defining multiple expressions for a field, and Tadpoles will derive the first one with an available source column. This allows you to define a single model for ingesting data from multiple sources that may have differing schemas.
 
@@ -33,13 +33,13 @@ Events(data)
 ```
 Equates to:
 ```py
-pl.DataFrame(data).with_columns(
+pl.DataFrame(data).lazy().with_columns(
     pl.col("event_id").cast(str),
     pl.col("timestamp").str.to_datetime("%Y-%m-%d %H:%M:%S").cast(pl.Datetime),
     pl.col("message.event_type").str.replace_all("com.amazon.rum.", "", literal=True).alias("event_type")
     pl.col("message.event_version").alias("event_version").cast(str),
     pl.col("message.metadata.email").alias("email").cast(str)
-    )
+    ).collect()
 
 ```
 
@@ -64,7 +64,7 @@ Events(data)
 Equates to:
 
 ```py
-pl.DataFrame(data).with_columns(
+pl.DataFrame(data).lazy().with_columns(
     pl.col("event_id").cast(str),
     pl.col("timestamp").str.to_datetime("%Y-%m-%d %H:%M:%S").cast(pl.Datetime),
     pl.col("message.event_type").str.replace_all("com.amazon.rum.", "", literal=True).alias("event_type")
@@ -72,7 +72,7 @@ pl.DataFrame(data).with_columns(
     pl.col("message.metadata.email").alias("email").cast(str)
     ).with_columns(
         pl.when(pl.col("event_type")=="login").then(True).otherwise(False)
-    )
+    ).collect()
 
 ```
 ## Providing multiple column expressions
