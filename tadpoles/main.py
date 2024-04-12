@@ -29,7 +29,6 @@ def unnest_all(self: pl.DataFrame, seperator="."):
     return self
 
 pl.DataFrame.unnest_all = unnest_all
-pl.LazyFrame.unnest_all = unnest_all
 
 class Field(object):
     exprs: List[pl.Expr] = []
