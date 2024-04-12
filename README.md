@@ -1,6 +1,6 @@
 ## Tadpoles
 
-Tadpoles is a Python package that extends the functionality of the polars library to make data transformations more concise and readable. It introduces the ability to define tables and column expressions in a manner reminiscent of Pydantic, providing a convenient and intuitive interface for data manipulation.
+Tadpoles is a Python package that extends the functionality of the polars library to make data ingestion and transformation code more concise and readable. It introduces the ability to define tables and column expressions in a manner reminiscent of Pydantic, providing a convenient and intuitive interface for data manipulation.
 
 ### Features
 
@@ -44,7 +44,7 @@ pl.DataFrame(data).lazy().with_columns(
 ```
 
 ## Deriving columns from other columns
-The ```event_flag``` column is derived from ```event_type``` after that column is derived from the original source. Tadpoles determines the source for each column expression by calling ```pl.Expr.meta.root_names()```. For example:
+The ```event_flag``` column is derived from ```event_type``` after the latter is derived from the original source. Tadpoles determines the source for each column expression by calling ```pl.Expr.meta.root_names()```. For example:
 
 
 ```py
@@ -97,6 +97,7 @@ Make Tadpoles unnest ```pl.Struct``` columns before derivation, making ingest of
 
 ```py
 from tadpoles import Model, Field, field
+import polars as pl
 
 data = [
     {
@@ -135,15 +136,15 @@ class Users(Model):
 df = Users(data, unnest=True)
 
 shape: (3, 5)
-┌──────────────────┬───────┬────────┬─────────┬─────────┐
-│ email            ┆ name  ┆ role   ┆ type    ┆ user_id │
-│ ---              ┆ ---   ┆ ---    ┆ ---     ┆ ---     │
-│ str              ┆ str   ┆ str    ┆ str     ┆ i64     │
-╞══════════════════╪═══════╪════════╪═════════╪═════════╡
+┌────────────────────┬───────┬────────┬─────────┬─────────┐
+│ email              ┆ name  ┆ role   ┆ type    ┆ user_id │
+│ ---                ┆ ---   ┆ ---    ┆ ---     ┆ ---     │
+│ str                ┆ str   ┆ str    ┆ str     ┆ i64     │
+╞════════════════════╪═══════╪════════╪═════════╪═════════╡
 │ user1@tadpoles.com ┆ user1 ┆ admin  ┆ member  ┆ 3299    │
 │ user2@tadpoles.com ┆ user2 ┆ editor ┆ member  ┆ 4903    │
 │ user3@tadpoles.com ┆ user3 ┆ reader ┆ visitor ┆ 4532    │
-└──────────────────┴───────┴────────┴─────────┴─────────┘
+└────────────────────┴───────┴────────┴─────────┴─────────┘
 
 ```
 # tadpoles

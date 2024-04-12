@@ -2,4 +2,4 @@ __pycache__
 poetry.lock
 *.pyc
 test.py
-data.py
+test_data.py
