@@ -1,6 +1,6 @@
 ## Tadpoles
 
-Tadpoles is a Python package that extends the functionality of the polars library. It introduces the ability to define tables and column expressions in a manner reminiscent of Pydantic, providing a convenient and intuitive interface for data manipulation.
+Tadpoles is a Python package that extends the functionality of the polars library to make data transformations more concise and readable. It introduces the ability to define tables and column expressions in a manner reminiscent of Pydantic, providing a convenient and intuitive interface for data manipulation.
 
 ### Features
 
