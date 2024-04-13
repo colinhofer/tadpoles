@@ -151,13 +151,6 @@ class Users(Model):
     company_name: str = pl.col("attributes.companies.name")
     company_id: int = pl.col("attributes.companies.id")
 
-"unnest" # Unnests dictionaries
-"explode" # Explodes lists
-"unnest-explode" # Unnests and explodes dictionaries and lists
-"unnest-first" # Unnests only the first level of dictionaries
-"explode-first" # Explodes only the first level of lists
-
-    
 df = Users(data, normalize="unnest-explode")
 
 shape: (6, 7)
@@ -173,9 +166,31 @@ shape: (6, 7)
 │ 1234       ┆ Stuff Co     ┆ user3@tadpoles.com ┆ user3 ┆ reader ┆ visitor ┆ 4532    │
 │ 5678       ┆ Another Co   ┆ user3@tadpoles.com ┆ user3 ┆ reader ┆ visitor ┆ 4532    │
 └────────────┴──────────────┴────────────────────┴───────┴────────┴─────────┴─────────┘
+```
+As a plain Polars statement this would look like:
+```py
+
+df = (
+    pl.DataFrame(data)
+    .unnest("attributes")
+    .explode("companies")
+    .with_columns(
+        pl.col("companies").struct.rename_fields(["company_name", "company_id"])
+    )
+    .unnest("companies")
+    .with_columns(pl.format("{}@tadpoles.com", pl.col("name")).alias("email"))
+)
 
 ```
+Normalization options are as follows:
+```py
+"unnest" # Unnests dictionaries
+"explode" # Explodes lists
+"unnest-explode" # Unnests and explodes dictionaries and lists
+"unnest-first" # Unnests only the first level of dictionaries
+"explode-first" # Explodes only the first level of lists
 
+```
 ## Providing multiple column expressions
 If a model needs to accept and transform data from different sources with different naming, multiple expressions can be provided to the ```tadpoles.Field``` object. When deriving columns, the first of these expressions with matching source columns is evaluated. The ```email``` column will be evaluated from the first valid expression of the two.
 
