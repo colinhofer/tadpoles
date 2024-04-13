@@ -14,7 +14,7 @@ Tadpoles is a Python package that extends the functionality of the polars librar
 
 
 ## Defining a model
-Define a class inhereting from the ```tadpoles.Model``` class. Columns are defined by the name, type, and value of the class attributes. The ```field``` object acts as a placeholder for ```pl.col('name')``` where name is the class attribute name.
+Define a class inhereting from the ```tadpoles.Model``` class. Columns are defined by the name, type, and value of the class attributes. The ```field``` object acts as a placeholder for ```pl.col("name")``` where name is the class attribute name.
 For example:
 
 ```py
@@ -75,25 +75,8 @@ pl.DataFrame(data).lazy().with_columns(
     ).collect()
 
 ```
-## Providing multiple column expressions
-If a model needs to accept and transform data from different sources with different naming, multiple expressions can be provided to the ```tadpoles.Field``` object. When deriving columns, the first of these expressions with matching source columns is evaluated. The ```email``` column will be evaluated from the first valid expression of the two.
-
-```py
-from tadpoles import Model, Field, field
-
-class Events(Model):
-    event_id: str
-    timestamp: pl.Datetime = field.str.to_datetime("%Y-%m-%d %H:%M:%S")
-    event_type: str = pl.col("message.event_type").str.replace_all("com.amazon.rum.", "", literal=True)
-    event_version: str = pl.col("message.event_version")
-    email: str = Field(pl.col("message.metadata.email"), pl.col("event_details.user.email"))
-    event_flag: bool = pl.when(pl.col("event_type")=="login").then(True).otherwise(False)
-    
-
-```
-
 ## Unnest and explode data structures automatically
-Tadpoles can unnest all ```pl.Struct``` and explode all ```pl.List``` columns before derivation, simplifying ingestion of nested dictionaries and lists. Set ```unnest``` and/or ```explode``` to true when instantiating the model class to unnest dictionaries and explode lists. Nested dictionary keys are separtated by ```.```. 
+Tadpoles can unnest all ```pl.Struct``` and explode all ```pl.List``` columns before derivation using the ```tadpoles.normalize``` function, simplifying the extraction of nested dictionaries and lists. Set the ```normalize``` keyword argument when instantiating the class to explode/unnest structured data. Nested dictionary keys are separtated by ```.```. By default this will explode/unnest all columns, to limit normalization to specific columns, list them in the ```normalize_columns``` keword argument.
 
 ```py
 from tadpoles import Model, Field, field
@@ -101,57 +84,57 @@ import polars as pl
 
 data = [
     {
-        'id': 3299,
-        'type': 'member',
-        'attributes': {
-            'name': 'user1',
-            'role': 'admin',
-            'companies': [
+        "id": 3299,
+        "type": "member",
+        "attributes": {
+            "name": "user1",
+            "role": "admin",
+            "companies": [
                 {
-                    'name': 'Stuff Co',
-                    'id': 1234
+                    "name": "Stuff Co",
+                    "id": 1234
                     },
                 {
-                    'name': 'Another Co',
-                    'id': 5678
-                    },
-                
-            ]
-        }
-    },
-    {
-        'id': 4903,
-        'type': 'member',
-        'attributes': {
-            'name': 'user2',
-            'role': 'editor',
-            'companies': [
-                {
-                    'name': 'Stuff Co',
-                    'id': 1234
-                    },
-                {
-                    'name': 'Another Co',
-                    'id': 5678
+                    "name": "Another Co",
+                    "id": 5678
                     },
                 
             ]
         }
     },
     {
-        'id': 4532,
-        'type': 'visitor',
-        'attributes': {
-            'name': 'user3',
-            'role': 'reader',
-            'companies': [
+        "id": 4903,
+        "type": "member",
+        "attributes": {
+            "name": "user2",
+            "role": "editor",
+            "companies": [
                 {
-                    'name': 'Stuff Co',
-                    'id': 1234
+                    "name": "Stuff Co",
+                    "id": 1234
                     },
                 {
-                    'name': 'Another Co',
-                    'id': 5678
+                    "name": "Another Co",
+                    "id": 5678
+                    },
+                
+            ]
+        }
+    },
+    {
+        "id": 4532,
+        "type": "visitor",
+        "attributes": {
+            "name": "user3",
+            "role": "reader",
+            "companies": [
+                {
+                    "name": "Stuff Co",
+                    "id": 1234
+                    },
+                {
+                    "name": "Another Co",
+                    "id": 5678
                     },
                 
             ]
@@ -167,8 +150,15 @@ class Users(Model):
     email: str = pl.format("{}@tadpoles.com", pl.col("name"))
     company_name: str = pl.col("attributes.companies.name")
     company_id: int = pl.col("attributes.companies.id")
+
+"unnest" # Unnests dictionaries
+"explode" # Explodes lists
+"unnest-explode" # Unnests and explodes dictionaries and lists
+"unnest-first" # Unnests only the first level of dictionaries
+"explode-first" # Explodes only the first level of lists
+
     
-df = Users(data, unnest=True, explode=True)
+df = Users(data, normalize="unnest-explode")
 
 shape: (6, 7)
 ┌────────────┬──────────────┬────────────────────┬───────┬────────┬─────────┬─────────┐
@@ -183,6 +173,23 @@ shape: (6, 7)
 │ 1234       ┆ Stuff Co     ┆ user3@tadpoles.com ┆ user3 ┆ reader ┆ visitor ┆ 4532    │
 │ 5678       ┆ Another Co   ┆ user3@tadpoles.com ┆ user3 ┆ reader ┆ visitor ┆ 4532    │
 └────────────┴──────────────┴────────────────────┴───────┴────────┴─────────┴─────────┘
+
+```
+
+## Providing multiple column expressions
+If a model needs to accept and transform data from different sources with different naming, multiple expressions can be provided to the ```tadpoles.Field``` object. When deriving columns, the first of these expressions with matching source columns is evaluated. The ```email``` column will be evaluated from the first valid expression of the two.
+
+```py
+from tadpoles import Model, Field, field
+
+class Events(Model):
+    event_id: str
+    timestamp: pl.Datetime = field.str.to_datetime("%Y-%m-%d %H:%M:%S")
+    event_type: str = pl.col("message.event_type").str.replace_all("com.amazon.rum.", "", literal=True)
+    event_version: str = pl.col("message.event_version")
+    email: str = Field(pl.col("message.metadata.email"), pl.col("event_details.user.email"))
+    event_flag: bool = pl.when(pl.col("event_type")=="login").then(True).otherwise(False)
+    
 
 ```
 # tadpoles

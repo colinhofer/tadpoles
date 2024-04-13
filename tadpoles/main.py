@@ -1,9 +1,10 @@
-from typing import Any, List
+from typing import Any, List, Literal
 from io import StringIO
 from itertools import count
 import polars as pl
 
 ITER_MAX = 10
+NORM_LITS = Literal['explode', 'unnest', 'unnest-explode', 'unnest-first', 'explode-first']
 
 field = pl.col("__standin__")
 
@@ -21,25 +22,27 @@ def unnest_rename(df: pl.DataFrame, columns: list, separator: str = "."):
         ]
     ).unnest(columns)
 
+def get_expandable(df: pl.DataFrame, how: str, columns: list = None):
+    columns = columns or df.columns
+    structs = [name for name in df.columns if df[name].dtype == pl.Struct and name in columns] if 'unnest' in how else []
+    lists = [name for name in df.columns if df[name].dtype == pl.List and name in columns] if 'explode' in how else []
+    return structs, lists
 
-def by_dtype(df: pl.DataFrame, dtype: type):
-    return [name for name in df.columns if df[name].dtype == dtype]
+pl.DataFrame.get_expandable = get_expandable
 
-
-def normalize(df: pl.DataFrame, separator=".", unnest: bool = True, explode: bool = True):
-    if not unnest and not explode:
-        return df
-    structs = by_dtype(df, pl.Struct) if unnest else []
-    lists = by_dtype(df, pl.List) if explode else []
+def normalize(df: pl.DataFrame, separator: str = ".", columns: list = [], how: NORM_LITS = 'explode-unnest'):
+    structs, lists = df.get_expandable(how, columns)
     while structs or lists:
         if lists:
             df = df.explode(lists)
         else:
             df = unnest_rename(df, structs, separator)
-        structs = by_dtype(df, pl.Struct) if unnest else []
-        lists = by_dtype(df, pl.List) if explode else []
+        if 'first' in how:
+            return df
+        structs, lists = df.get_expandable(how, columns)
     return df
 
+pl.DataFrame.normalize = normalize
 
 class Field(object):
     exprs: List[pl.Expr] = []
@@ -112,10 +115,10 @@ class Model(pl.DataFrame, metaclass=PlModelMeta):
     _key: List[str]
     
     
-    def __init__(self, *args, derive: bool = True, unnest: bool = False, explode: bool = False, **kwargs):
+    def __init__(self, *args, derive: bool = True, normalize: NORM_LITS = None, normalize_columns: list = None, **kwargs):
         super().__init__(*args, **kwargs)
         self._derived = []
-        self._df = normalize(self, unnest=unnest, explode=explode)._df
+        self._df = self.normalize(how=normalize, columns=normalize_columns)._df if normalize else self._df
         self.new_cols = [field.name for field in self.__fields__]
         if derive:
             self._derive()
