@@ -92,8 +92,8 @@ class Events(Model):
 
 ```
 
-## Unnest data automatically
-Make Tadpoles unnest ```pl.Struct``` columns before derivation, making ingest of nested dictionaries simple. Nested dictionary keys are separtated by ```.```.
+## Unnest and explode data structures automatically
+Tadpoles can unnest all ```pl.Struct``` and explode all ```pl.List``` columns before derivation, simplifying ingestion of nested dictionaries and lists. Set ```unnest``` and/or ```explode``` to true when instantiating the model class to unnest dictionaries and explode lists. Nested dictionary keys are separtated by ```.```. 
 
 ```py
 from tadpoles import Model, Field, field
@@ -105,7 +105,18 @@ data = [
         'type': 'member',
         'attributes': {
             'name': 'user1',
-            'role': 'admin'
+            'role': 'admin',
+            'companies': [
+                {
+                    'name': 'Stuff Co',
+                    'id': 1234
+                    },
+                {
+                    'name': 'Another Co',
+                    'id': 5678
+                    },
+                
+            ]
         }
     },
     {
@@ -113,7 +124,18 @@ data = [
         'type': 'member',
         'attributes': {
             'name': 'user2',
-            'role': 'editor'
+            'role': 'editor',
+            'companies': [
+                {
+                    'name': 'Stuff Co',
+                    'id': 1234
+                    },
+                {
+                    'name': 'Another Co',
+                    'id': 5678
+                    },
+                
+            ]
         }
     },
     {
@@ -121,7 +143,18 @@ data = [
         'type': 'visitor',
         'attributes': {
             'name': 'user3',
-            'role': 'reader'
+            'role': 'reader',
+            'companies': [
+                {
+                    'name': 'Stuff Co',
+                    'id': 1234
+                    },
+                {
+                    'name': 'Another Co',
+                    'id': 5678
+                    },
+                
+            ]
         }
     }
 ]
@@ -132,19 +165,24 @@ class Users(Model):
     name: str = pl.col("attributes.name")
     role: str = pl.col("attributes.role")
     email: str = pl.format("{}@tadpoles.com", pl.col("name"))
+    company_name: str = pl.col("attributes.companies.name")
+    company_id: int = pl.col("attributes.companies.id")
     
-df = Users(data, unnest=True)
+df = Users(data, unnest=True, explode=True)
 
-shape: (3, 5)
-┌────────────────────┬───────┬────────┬─────────┬─────────┐
-│ email              ┆ name  ┆ role   ┆ type    ┆ user_id │
-│ ---                ┆ ---   ┆ ---    ┆ ---     ┆ ---     │
-│ str                ┆ str   ┆ str    ┆ str     ┆ i64     │
-╞════════════════════╪═══════╪════════╪═════════╪═════════╡
-│ user1@tadpoles.com ┆ user1 ┆ admin  ┆ member  ┆ 3299    │
-│ user2@tadpoles.com ┆ user2 ┆ editor ┆ member  ┆ 4903    │
-│ user3@tadpoles.com ┆ user3 ┆ reader ┆ visitor ┆ 4532    │
-└────────────────────┴───────┴────────┴─────────┴─────────┘
+shape: (6, 7)
+┌────────────┬──────────────┬────────────────────┬───────┬────────┬─────────┬─────────┐
+│ company_id ┆ company_name ┆ email              ┆ name  ┆ role   ┆ type    ┆ user_id │
+│ ---        ┆ ---          ┆ ---                ┆ ---   ┆ ---    ┆ ---     ┆ ---     │
+│ i64        ┆ str          ┆ str                ┆ str   ┆ str    ┆ str     ┆ i64     │
+╞════════════╪══════════════╪════════════════════╪═══════╪════════╪═════════╪═════════╡
+│ 1234       ┆ Stuff Co     ┆ user1@tadpoles.com ┆ user1 ┆ admin  ┆ member  ┆ 3299    │
+│ 5678       ┆ Another Co   ┆ user1@tadpoles.com ┆ user1 ┆ admin  ┆ member  ┆ 3299    │
+│ 1234       ┆ Stuff Co     ┆ user2@tadpoles.com ┆ user2 ┆ editor ┆ member  ┆ 4903    │
+│ 5678       ┆ Another Co   ┆ user2@tadpoles.com ┆ user2 ┆ editor ┆ member  ┆ 4903    │
+│ 1234       ┆ Stuff Co     ┆ user3@tadpoles.com ┆ user3 ┆ reader ┆ visitor ┆ 4532    │
+│ 5678       ┆ Another Co   ┆ user3@tadpoles.com ┆ user3 ┆ reader ┆ visitor ┆ 4532    │
+└────────────┴──────────────┴────────────────────┴───────┴────────┴─────────┴─────────┘
 
 ```
 # tadpoles

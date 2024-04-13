@@ -7,28 +7,39 @@ ITER_MAX = 10
 
 field = pl.col("__standin__")
 
-def unnest_all(self: pl.DataFrame, seperator="."):
-    def _unnest_all(struct_columns):
-        return self.with_columns(
-            [
-                pl.col(column).struct.rename_fields(
-                    [
-                        f"{column}{seperator}{field_name}"
-                        for field_name in self[column].struct.fields
-                    ]
-                )
-                for column in struct_columns
-            ]
-        ).unnest(struct_columns)
 
-    struct_columns = [name for name in self.columns if self[name].dtype == pl.Struct]
-    while len(struct_columns):
-        self = _unnest_all(struct_columns=struct_columns)
-        struct_columns = [name for name in self.columns if self[name].dtype == pl.Struct]
+def unnest_rename(df: pl.DataFrame, columns: list, separator: str = "."):
+    return df.with_columns(
+        [
+            pl.col(column).struct.rename_fields(
+                [
+                    f"{column}{separator}{field_name}"
+                    for field_name in df[column].struct.fields
+                ]
+            )
+            for column in columns
+        ]
+    ).unnest(columns)
 
-    return self
 
-pl.DataFrame.unnest_all = unnest_all
+def by_dtype(df: pl.DataFrame, dtype: type):
+    return [name for name in df.columns if df[name].dtype == dtype]
+
+
+def normalize(df: pl.DataFrame, separator=".", unnest: bool = True, explode: bool = True):
+    if not unnest and not explode:
+        return df
+    structs = by_dtype(df, pl.Struct) if unnest else []
+    lists = by_dtype(df, pl.List) if explode else []
+    while structs or lists:
+        if lists:
+            df = df.explode(lists)
+        else:
+            df = unnest_rename(df, structs, separator)
+        structs = by_dtype(df, pl.Struct) if unnest else []
+        lists = by_dtype(df, pl.List) if explode else []
+    return df
+
 
 class Field(object):
     exprs: List[pl.Expr] = []
@@ -101,11 +112,10 @@ class Model(pl.DataFrame, metaclass=PlModelMeta):
     _key: List[str]
     
     
-    def __init__(self, *args, derive: bool = True, unnest: bool = False, **kwargs):
+    def __init__(self, *args, derive: bool = True, unnest: bool = False, explode: bool = False, **kwargs):
         super().__init__(*args, **kwargs)
         self._derived = []
-        if unnest:
-            self._df = self.unnest_all()._df
+        self._df = normalize(self, unnest=unnest, explode=explode)._df
         self.new_cols = [field.name for field in self.__fields__]
         if derive:
             self._derive()
