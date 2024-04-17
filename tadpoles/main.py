@@ -8,7 +8,6 @@ NORM_LITS = Literal['explode', 'unnest', 'unnest-explode', 'unnest-first', 'expl
 
 field = pl.col("__standin__")
 
-
 def unnest_rename(df: pl.DataFrame, columns: list, separator: str = "."):
     return df.with_columns(
         [
@@ -44,12 +43,14 @@ def normalize(df: pl.DataFrame, separator: str = ".", columns: list = [], how: N
 
 pl.DataFrame.normalize = normalize
 
+
 class Field(object):
     exprs: List[pl.Expr] = []
+    name: str = None
     
-    def __init__(self, *inputs, **kwargs):
+    def __init__(self, *values, **kwargs):
         self.exprs = []
-        self.values = inputs
+        self.values = values
         self.primary_key = kwargs.get('primary_key', False)
         self.dtype = kwargs.get('dtype', str)
         self.default = kwargs.get('default')
@@ -60,44 +61,41 @@ class Field(object):
     @property
     def literal(self) -> pl.Expr:
         return pl.lit(self.default).alias(self.name).cast(self.dtype)
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @name.setter
-    def name(self, name_str: str):
-        self._name = name_str
+    
+    def set_exprs(self):
+        if not self.name:
+            raise ValueError(f"No name attribute for field")
         for value in self.values:
             if value is None:
-                self.exprs.append(pl.col(self._name).cast(self.dtype))
+                self.exprs.append(pl.col(self.name).cast(self.dtype))
             elif not isinstance(value, pl.Expr):
                 self.default = value
-                self.exprs.append(pl.col(self._name).cast(self.dtype).fill_null(self.default))
+                self.exprs.append(pl.col(self.name).cast(self.dtype).fill_null(self.default))
             else:
                 self.exprs.append(pl.Expr.deserialize(
-                    StringIO(value.meta.serialize().replace("__standin__", self._name))
-                ).alias(self._name).cast(self.dtype))
+                    StringIO(value.meta.serialize().replace("__standin__", self.name))
+                ).alias(self.name).cast(self.dtype))
     
-        
-    def derivable(self, columns: list):
+    def derivable(self, context: list):
         for expr in self.exprs:
-            if all([source in columns for source in expr.meta.root_names()]):
+            if all([source in context for source in expr.meta.root_names()]):
                 return expr
 
 
 class PlModelMeta(type):
+    
     def __new__(mcs, name: str, bases: Any, attrs: dict, **kwargs):
         fields: List[Field] = attrs.pop("__fields__", [])
         annotations: dict = attrs.get("__annotations__", {})
         model_attrs = {key: val for key, val in attrs.items() if not key.startswith("_") and not callable(val)}
         model_types = {key: val for key, val in annotations.items() if not key.startswith("_")}
-        for name in set(model_attrs) | set(model_types):
-            value = model_attrs.pop(name, None)
-            dtype = model_types.get(name, type(value))
+        for col in set(model_attrs) | set(model_types):
+            value = model_attrs.pop(col, None)
+            dtype = model_types.get(col, type(value))
             field = value if isinstance(value, Field) else Field(value)
             field.dtype = dtype
-            field.name = name
+            field.name = col
+            field.set_exprs()
             fields.append(field)
         for base in bases:
             if hasattr(base, "__fields__"):
@@ -114,7 +112,6 @@ class Model(pl.DataFrame, metaclass=PlModelMeta):
     _derived: List[Field]
     _key: List[str]
     
-    
     def __init__(self, *args, derive: bool = True, normalize: NORM_LITS = None, normalize_columns: list = None, **kwargs):
         super().__init__(*args, **kwargs)
         self._derived = []
@@ -122,12 +119,10 @@ class Model(pl.DataFrame, metaclass=PlModelMeta):
         self.new_cols = [field.name for field in self.__fields__]
         if derive:
             self._derive()
-             
-             
+
     @property
     def _underived(self):
         return [field for field in self.__fields__ if field not in self._derived]
-
 
     def _valid_exprs(self, lf: pl.LazyFrame):
         exprs = []
@@ -137,7 +132,6 @@ class Model(pl.DataFrame, metaclass=PlModelMeta):
                 exprs.append(expr)
                 self._derived.append(field)
         return exprs
-                  
                             
     def _derive(self):
         if self.is_empty():
@@ -155,16 +149,13 @@ class Model(pl.DataFrame, metaclass=PlModelMeta):
             lf = lf.with_columns(exprs)
         literals = [field.literal for field in self._underived]
         lf = lf.with_columns(literals).select(sorted(self.new_cols))
-        self._df = lf.collect()._df
-    
-    
+        self._df = lf.collect()._df     
+
     def with_columns(self, *exprs: Any, **named_exprs: Any):
         return self.__class__(super().with_columns(*exprs, **named_exprs), derive=False)
 
-
     def select(self, *exprs: Any, **named_exprs: Any):
         return self.__class__(super().select(*exprs, **named_exprs), derive=False)
-
 
     def update(self, *args, **kwargs):
         return self.__class__(super().update(*args, **kwargs), derive=False)

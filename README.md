@@ -14,7 +14,7 @@ Tadpoles is a Python package that extends the functionality of the polars librar
 
 
 ## Defining a model
-Define a class inhereting from the ```tadpoles.Model``` class. Columns are defined by the name, type, and value of the class attributes. The ```field``` object acts as a placeholder for ```pl.col("name")``` where name is the class attribute name.
+Define a subclass of ```tadpoles.Model```. Columns are defined by the name, type, and value of the class attributes. The ```field``` object acts as a placeholder for ```pl.col("name")``` where name is the class attribute name.
 For example:
 
 ```py
@@ -204,7 +204,53 @@ class Events(Model):
     event_version: str = pl.col("message.event_version")
     email: str = Field(pl.col("message.metadata.email"), pl.col("event_details.user.email"))
     event_flag: bool = pl.when(pl.col("event_type")=="login").then(True).otherwise(False)
-    
-
 ```
+## Subclasses and inheritence
+Column expressions from subclasses are inherited as if they were typical attributes. In this example the ```Users``` is a subclass of ```People``` and inherits its expressions.
+
+```py
+class People(Model):
+    type: str
+    name: str = pl.col("attributes.name")
+    email: str = pl.format("{}@tadpoles.com", pl.col("name"))
+    
+df = People(data, normalize='unnest-explode')
+    
+shape: (6, 3)
+┌────────────────────┬───────┬─────────┐
+│ email              ┆ name  ┆ type    │
+│ ---                ┆ ---   ┆ ---     │
+│ str                ┆ str   ┆ str     │
+╞════════════════════╪═══════╪═════════╡
+│ user1@tadpoles.com ┆ user1 ┆ member  │
+│ user1@tadpoles.com ┆ user1 ┆ member  │
+│ user2@tadpoles.com ┆ user2 ┆ member  │
+│ user2@tadpoles.com ┆ user2 ┆ member  │
+│ user3@tadpoles.com ┆ user3 ┆ visitor │
+│ user3@tadpoles.com ┆ user3 ┆ visitor │
+└────────────────────┴───────┴─────────┘
+    
+class Users(People):
+    user_id: int = pl.col("id")
+    role: str = pl.col("attributes.role")
+    company_name: str = pl.col("attributes.companies.name")
+    company_id: int = pl.col("attributes.companies.id")
+    
+df = Users(data, normalize='unnest-explode')
+
+shape: (6, 7)
+┌────────────┬──────────────┬────────────────────┬───────┬────────┬─────────┬─────────┐
+│ company_id ┆ company_name ┆ email              ┆ name  ┆ role   ┆ type    ┆ user_id │
+│ ---        ┆ ---          ┆ ---                ┆ ---   ┆ ---    ┆ ---     ┆ ---     │
+│ i64        ┆ str          ┆ str                ┆ str   ┆ str    ┆ str     ┆ i64     │
+╞════════════╪══════════════╪════════════════════╪═══════╪════════╪═════════╪═════════╡
+│ 1234       ┆ Stuff Co     ┆ user1@tadpoles.com ┆ user1 ┆ admin  ┆ member  ┆ 3299    │
+│ 5678       ┆ Another Co   ┆ user1@tadpoles.com ┆ user1 ┆ admin  ┆ member  ┆ 3299    │
+│ 1234       ┆ Stuff Co     ┆ user2@tadpoles.com ┆ user2 ┆ editor ┆ member  ┆ 4903    │
+│ 5678       ┆ Another Co   ┆ user2@tadpoles.com ┆ user2 ┆ editor ┆ member  ┆ 4903    │
+│ 1234       ┆ Stuff Co     ┆ user3@tadpoles.com ┆ user3 ┆ reader ┆ visitor ┆ 4532    │
+│ 5678       ┆ Another Co   ┆ user3@tadpoles.com ┆ user3 ┆ reader ┆ visitor ┆ 4532    │
+└────────────┴──────────────┴────────────────────┴───────┴────────┴─────────┴─────────┘
+```
+
 # tadpoles

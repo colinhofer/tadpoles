@@ -1,1 +1,1 @@
-from .main import Model, Field, field, normalize
+from .main import Model, Field, field, pl, normalize
