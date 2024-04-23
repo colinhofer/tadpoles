@@ -8,6 +8,11 @@ NORM_LITS = Literal['explode', 'unnest', 'unnest-explode', 'unnest-first', 'expl
 
 field = pl.col("__standin__")
 
+def model_starter(name: str, data: pl.DataFrame|dict):
+    df = pl.DataFrame(data, infer_schema_length=None)
+    print(f"class {name}(Model):")
+    [print(f'   {col}: pl.{dtype} = pl.col("{col}")') for col, dtype in df.schema.items()]
+
 def unnest_rename(df: pl.DataFrame, columns: list, separator: str = "."):
     return df.with_columns(
         [
