@@ -19,7 +19,7 @@ def unnest_rename(df: pl.DataFrame, columns: list, separator: str = "."):
             )
             for column in columns
         ]
-    ).unnest(columns)
+    ).unnest(columns)   
 
 def get_expandable(df: pl.DataFrame, how: str, columns: list = None):
     columns = columns or df.columns
@@ -50,7 +50,7 @@ class Field(object):
     
     def __init__(self, *values, **kwargs):
         self.exprs = []
-        self.values = values
+        self.values = values if values else (None,)
         self.primary_key = kwargs.get('primary_key', False)
         self.dtype = kwargs.get('dtype', str)
         self.default = kwargs.get('default')
