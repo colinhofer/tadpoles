@@ -118,7 +118,10 @@ class Model(pl.DataFrame, metaclass=PlModelMeta):
     _key: List[str]
     
     def __init__(self, *args, derive: bool = True, normalize: NORM_LITS = None, normalize_columns: list = None, **kwargs):
-        super().__init__(*args, **kwargs)
+        try:
+            super().__init__(*args, **kwargs)
+        except pl.exceptions.ComputeError:
+            super().__init__(*args, infer_schema_length=None, **kwargs)
         self._derived = []
         self._df = self.normalize(how=normalize, columns=normalize_columns)._df if normalize else self._df
         self.new_cols = [field.name for field in self.__fields__]
