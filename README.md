@@ -6,7 +6,7 @@ Tadpoles is a Python package that extends the functionality of the polars librar
 
 - **Readable Dataframe Schemas & Transormation**: Tadpoles model classes are easy to write and understand, making complex polars dataframe transformations simpler to code.
   
-- **Column Derivation**: Tadpoles derives columns based on specified expressions, streamlining the process of ingesting complex data structures. Column derivation is done in groups only for expressions with available sources, allowing derived that reference other derived columns.
+- **Column Derivation**: Tadpoles derives columns based on specified expressions, streamlining the process of ingesting complex data structures. Column expressions are chained in groups only for expressions with available source columns, allowing derived columns to reference other derived columns.
 
 - **Nothing but Polars**: Built as an extension of the Polars library, Tadpoles has no other dependencies. Tadpoles takes advantage of Polars laziness when deriving columns, compiling the full expression before collecting.
 
@@ -14,7 +14,7 @@ Tadpoles is a Python package that extends the functionality of the polars librar
 
 
 ## Defining a model
-Define a subclass of ```tadpoles.Model```. Columns are defined by the name, type, and value of the class attributes. The ```field``` object acts as a placeholder for ```pl.col("name")``` where name is the class attribute name.
+Define a subclass of ```tadpoles.Model```. Columns are defined by the name, type, and value of the class attributes. The ```field``` object acts as a placeholder for ```pl.col("name")``` where name is the class attribute name. The transformation is evaluated lazily, to execute it and return a dataframe use the ```collect``` method.
 For example:
 
 ```py
@@ -76,7 +76,7 @@ pl.LazyFrame(data).with_columns(
 
 ```
 ## Unnest and explode data structures automatically
-Tadpoles can unnest all ```pl.Struct``` and explode all ```pl.List``` columns before derivation using the ```tadpoles.normalize``` function, simplifying the extraction of nested dictionaries and lists. Set the ```normalize``` keyword argument when instantiating the class to explode/unnest structured data. Nested dictionary keys are separtated by ```.```. By default this will explode/unnest all columns, to limit normalization to specific columns, list them in the ```normalize_columns``` keword argument.
+Tadpoles can unnest all ```pl.Struct``` and explode all ```pl.List``` columns before derivation using the ```tadpoles.normalize``` function, simplifying the extraction of nested dictionaries and lists. Set the ```expand``` keyword argument when instantiating the class to explode/unnest structured data. Nested dictionary keys are separtated by ```.```. By default this will explode/unnest all columns, to limit normalization to specific columns, list them in the ```normalize_columns``` keword argument.
 
 ```py
 from tadpoles import Model, Field, field
@@ -151,7 +151,7 @@ class Users(Model):
     company_name: str = pl.col("attributes.companies.name")
     company_id: int = pl.col("attributes.companies.id")
 
-df = Users(data, normalize="unnest-explode").collect()
+df = Users(data, expand="unnest-explode").collect()
 
 shape: (6, 7)
 ┌────────────┬──────────────┬────────────────────┬───────┬────────┬─────────┬─────────┐
@@ -182,7 +182,7 @@ df = (
 ).collect()
 
 ```
-Normalization options are as follows:
+Expand options are as follows:
 ```py
 "unnest" # Unnests dictionaries
 "explode" # Explodes lists
