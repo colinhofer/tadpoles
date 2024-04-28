@@ -28,12 +28,12 @@ class Events(Model):
     event_version: str = pl.col("message.event_version")
     email: str = pl.col("message.metadata.email")
 
-Events(data)
+Events(data).collect()
 
 ```
 Equates to:
 ```py
-pl.DataFrame(data).lazy().with_columns(
+pl.LazyFrame(data).with_columns(
     pl.col("event_id").cast(str),
     pl.col("timestamp").str.to_datetime("%Y-%m-%d %H:%M:%S").cast(pl.Datetime),
     pl.col("message.event_type").str.replace_all("com.amazon.rum.", "", literal=True).alias("event_type")
@@ -58,13 +58,13 @@ class Events(Model):
     email: str = pl.col("message.metadata.email")
     event_flag: bool = pl.when(pl.col("event_type")=="login").then(True).otherwise(False)
 
-Events(data)
+Events(data).collect()
 
 ```
 Equates to:
 
 ```py
-pl.DataFrame(data).lazy().with_columns(
+pl.LazyFrame(data).with_columns(
     pl.col("event_id").cast(str),
     pl.col("timestamp").str.to_datetime("%Y-%m-%d %H:%M:%S").cast(pl.Datetime),
     pl.col("message.event_type").str.replace_all("com.amazon.rum.", "", literal=True).alias("event_type")
@@ -151,7 +151,7 @@ class Users(Model):
     company_name: str = pl.col("attributes.companies.name")
     company_id: int = pl.col("attributes.companies.id")
 
-df = Users(data, normalize="unnest-explode")
+df = Users(data, normalize="unnest-explode").collect()
 
 shape: (6, 7)
 ┌────────────┬──────────────┬────────────────────┬───────┬────────┬─────────┬─────────┐
@@ -171,7 +171,7 @@ As a plain Polars statement this would look like:
 ```py
 
 df = (
-    pl.DataFrame(data)
+    pl.LazyFrame(data)
     .unnest("attributes")
     .explode("companies")
     .with_columns(
@@ -179,7 +179,7 @@ df = (
     )
     .unnest("companies")
     .with_columns(pl.format("{}@tadpoles.com", pl.col("name")).alias("email"))
-)
+).collect()
 
 ```
 Normalization options are as follows:
@@ -214,7 +214,7 @@ class People(Model):
     name: str = pl.col("attributes.name")
     email: str = pl.format("{}@tadpoles.com", pl.col("name"))
     
-df = People(data, normalize='unnest-explode')
+df = People(data, normalize='unnest-explode').collect()
     
 shape: (6, 3)
 ┌────────────────────┬───────┬─────────┐
@@ -236,7 +236,7 @@ class Users(People):
     company_name: str = pl.col("attributes.companies.name")
     company_id: int = pl.col("attributes.companies.id")
     
-df = Users(data, normalize='unnest-explode')
+df = Users(data, normalize='unnest-explode').collect()
 
 shape: (6, 7)
 ┌────────────┬──────────────┬────────────────────┬───────┬────────┬─────────┬─────────┐

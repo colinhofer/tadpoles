@@ -3,3 +3,5 @@ poetry.lock
 *.pyc
 test.py
 test_data.py
+.venv
+dev
