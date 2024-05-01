@@ -6,7 +6,7 @@ authors = ["Colin Hofer <colin.hofer@proton.me>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.11,<3.13"
+python = "~=3.10"
 polars = "^0.20.19"
 
 
