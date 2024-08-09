@@ -76,7 +76,7 @@ pl.LazyFrame(data).with_columns(
 
 ```
 ## Unnest and explode data structures automatically
-Tadpoles can unnest all ```pl.Struct``` and explode all ```pl.List``` columns before derivation using the ```tadpoles.normalize``` function, simplifying the extraction of nested dictionaries and lists. Set the ```expand``` keyword argument when instantiating the class to explode/unnest structured data. Nested dictionary keys are separtated by ```.```. By default this will explode/unnest all columns, to limit normalization to specific columns, list them in the ```normalize_columns``` keword argument.
+Tadpoles can unnest all ```pl.Struct``` and explode all ```pl.List``` columns before derivation using the ```tadpoles.normalize``` function, simplifying the extraction of nested dictionaries and lists. Set the ```expand``` keyword argument when instantiating the class to explode/unnest structured data. Nested dictionary keys are separtated by ```.```. By default this will explode/unnest all columns, to limit normalization to specific columns, list them in the ```expand_columns``` keword argument.
 
 ```py
 from tadpoles import Model, Field, field
