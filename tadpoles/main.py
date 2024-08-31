@@ -36,7 +36,10 @@ def unnest_rename(ldf: pl.LazyFrame, columns: List[str], separator: str = ".") -
 
 def get_expandable(ldf: pl.LazyFrame, how: str, columns: List[str] = None) -> Tuple[List[str], List[str]]:
     """Identifies expandable columns (structs and lists) based on the provided method."""
-    columns = [col for col in ldf.columns if any(name in col for name in columns)] or ldf.columns
+    if columns:
+        columns = [col for col in ldf.columns if any(name in col for name in columns)]
+    else:
+        columns = ldf.columns
     structs = [name for name in columns if isinstance(ldf.schema[name], pl.Struct)] if 'unnest' in how else []
     lists = [name for name in columns if isinstance(ldf.schema[name], pl.List)] if 'explode' in how else []
     return structs, lists
@@ -115,8 +118,12 @@ class Field:
                 self.default = value
                 self.expressions.append(pl.col(self.name).cast(self.dtype).fill_null(self.default))
             else:
-                expr_str = value.meta.serialize().replace("__standin__", self.name)
-                self.expressions.append(pl.Expr.deserialize(StringIO(expr_str)).alias(self.name).cast(self.dtype))
+                
+                expr_str = value.meta.serialize(format='json').replace("__standin__", self.name)
+                expr = pl.Expr.deserialize(StringIO(expr_str), format='json').alias(self.name)
+                if self.dtype not in [pl.Struct, pl.List, list, dict]:
+                    expr = expr.cast(self.dtype)
+                self.expressions.append(expr)
 
     def derivable(self, context: List[str]) -> pl.Expr:
         for expr in self.expressions:
