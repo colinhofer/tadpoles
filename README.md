@@ -14,7 +14,7 @@ Tadpoles is a Python package that extends the functionality of the polars librar
 
 
 ## Defining a model
-Define a subclass of ```tadpoles.Model```. Columns are defined by the name, type, and value of the class attributes. The ```field``` object acts as a placeholder for ```pl.col("name")``` where name is the class attribute name. The transformation is evaluated lazily, to execute it and return a dataframe use the ```collect``` method.
+Define a subclass of ```tadpoles.Model```. Columns are defined by the name, type, and value of the class attributes. Attributes with type hints will be cast to the appropriate Polars data type. Attributes without type hints will remain their original Polars data type. The ```field``` object acts as a placeholder for ```pl.col("name")``` where name is the class attribute name. The transformation is evaluated lazily, to execute it and return a dataframe use the ```collect``` method.
 For example:
 
 ```py
@@ -76,7 +76,7 @@ pl.LazyFrame(data).with_columns(
 
 ```
 ## Unnest and explode data structures automatically
-Tadpoles can unnest all ```pl.Struct``` and explode all ```pl.List``` columns before derivation using the ```tadpoles.normalize``` function, simplifying the extraction of nested dictionaries and lists. Set the ```expand``` keyword argument when instantiating the class to explode/unnest structured data. Nested dictionary keys are separtated by ```.```. By default this will explode/unnest all columns, to limit normalization to specific columns, list them in the ```expand_columns``` keword argument.
+Tadpoles can unnest all ```pl.Struct``` and explode all ```pl.List``` columns before derivation using the ```tadpoles.normalize``` function, simplifying the extraction of nested dictionaries and lists. Set the ```expand``` attribute when defining the model subclass, or set the ```expand``` keyword argument when instantiating the class to explode/unnest structured data. Nested dictionary keys are separtated by ```.```. By default this will explode/unnest all columns, to limit normalization to specific columns, list them in the ```expand_columns``` keword argument.
 
 ```py
 from tadpoles import Model, Field, field
@@ -143,6 +143,8 @@ data = [
 ]
 
 class Users(Model):
+    expand: "unnest-explode" # Speficy expand settings 
+
     user_id: int = pl.col("id")
     type: str
     name: str = pl.col("attributes.name")
@@ -151,7 +153,7 @@ class Users(Model):
     company_name: str = pl.col("attributes.companies.name")
     company_id: int = pl.col("attributes.companies.id")
 
-df = Users(data, expand="unnest-explode").collect()
+df = Users(data).collect()
 
 shape: (6, 7)
 ┌────────────┬──────────────┬────────────────────┬───────┬────────┬─────────┬─────────┐
@@ -178,7 +180,7 @@ df = (
         pl.col("companies").struct.rename_fields(["company_name", "company_id"])
     )
     .unnest("companies")
-    .with_columns(pl.format("{}@tadpoles.com", pl.col("name")).alias("email"))
+    .with_columns(pl.format("{}@tadpoles.com", pl.col("name")).alias("email").cast(str)
 ).collect()
 
 ```
@@ -205,6 +207,27 @@ class Events(Model):
     email: str = Field(pl.col("message.metadata.email"), pl.col("event_details.user.email"))
     event_flag: bool = pl.when(pl.col("event_type")=="login").then(True).otherwise(False)
 ```
+## Complex data types
+Type hints provided in the model class definition will be used to cast the data type, however, in order to explicitly cast fields within a ```pl.Struct``` column, the data type must be provided to the ```dtype``` keyword argument for ```Field```. For example, to cast the nested data within the ```attributes``` column from the sample data above:
+```py
+
+attribute_dtype = pl.Struct(
+    {
+        "name": pl.String,
+        "role": pl.String,
+        "companies": pl.List(pl.Struct({"name": pl.String, "id": pl.Int32})),
+    }
+)
+
+class Users(Model):
+    user_id: int = pl.col("id")
+    type: str
+    email: str = pl.format("{}@tadpoles.com", pl.col("name"))
+    attributes = Field(dtype=attribute_dtype) # Pass dtype object as keyword argument
+
+```
+
+
 ## Subclasses and inheritence
 Column expressions from subclasses are inherited as if they were typical attributes. In this example the ```Users``` is a subclass of ```People``` and inherits its expressions.
 
@@ -214,7 +237,7 @@ class People(Model):
     name: str = pl.col("attributes.name")
     email: str = pl.format("{}@tadpoles.com", pl.col("name"))
     
-df = People(data, normalize='unnest-explode').collect()
+df = People(data, expand='unnest-explode').collect()
     
 shape: (6, 3)
 ┌────────────────────┬───────┬─────────┐
@@ -236,7 +259,7 @@ class Users(People):
     company_name: str = pl.col("attributes.companies.name")
     company_id: int = pl.col("attributes.companies.id")
     
-df = Users(data, normalize='unnest-explode').collect()
+df = Users(data, expand='unnest-explode').collect()
 
 shape: (6, 7)
 ┌────────────┬──────────────┬────────────────────┬───────┬────────┬─────────┬─────────┐
@@ -251,6 +274,19 @@ shape: (6, 7)
 │ 1234       ┆ Stuff Co     ┆ user3@tadpoles.com ┆ user3 ┆ reader ┆ visitor ┆ 4532    │
 │ 5678       ┆ Another Co   ┆ user3@tadpoles.com ┆ user3 ┆ reader ┆ visitor ┆ 4532    │
 └────────────┴──────────────┴────────────────────┴───────┴────────┴─────────┴─────────┘
+```
+Model fields can also be referenced directly in another model to allow reusing long polars expressions or Field instances. For example:
+```py
+
+class Logins(Model):
+    name: str = pl.col("attributes.name")
+    email: str = pl.format("{}@tadpoles.com", pl.col("name"))
+    event_flag: bool = pl.when(pl.col("event_type")=="login").then(True).otherwise(False)
+
+class Searches(Model):
+    user_id: int = pl.col("id")
+    role: str = pl.col("attributes.role")
+    event_flag = Logins.event_flag # Reuse the same logic and type casting as above
 ```
 
 # tadpoles
