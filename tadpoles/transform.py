@@ -15,7 +15,7 @@ def model_starter(name: str, data: Any, expand: NORM_LITS = None) -> None:
     str_replace = [".", " ", "-", "/"]
     ldf = pl.LazyFrame(data, infer_schema_length=None)
     ldf = normalize(ldf, how=expand) if expand else ldf
-    print(f"class {name}(Table):")
+    print(f"class {name}(Model):")
     for col, dtype in ldf.collect_schema().items():
         field = col.lower()
         for char in str_replace:

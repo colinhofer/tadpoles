@@ -1,7 +1,7 @@
 from typing import List, Tuple
 import polars as pl
 import os
-from .transform import transform, normalize, NORM_LITS
+from .transform import transform, normalize, NORM_LITS, ITER_MAX
 from .field import Field
 
 
@@ -37,7 +37,7 @@ class ModelMeta(type):
         return super().__new__(mcs, name, bases, attrs, **kwargs)
 
 
-class _Model(pl.LazyFrame):
+class _Model(object):
     expand: NORM_LITS = None
     expand_columns: list = None
     fields: List[Field]
@@ -75,11 +75,16 @@ class _Model(pl.LazyFrame):
         obj.__dict__.update(self.__dict__)
         return obj
 
+    @classmethod
+    def transform(cls, ldf: pl.LazyFrame, **kwargs) -> pl.LazyFrame:
+        return transform(ldf, cls.fields)
+    
     @property
-    def primary_key(self):
+    def primary_key(self) -> list:
         return [col.name for col in self.fields if col.primary_key]
 
-    def append(self, other):
+    def append(self, other) -> None:
+        "Add more data to the current model lazyframe"
         if issubclass(other.__class__, _Model):
             other_lf = other.lf
         elif isinstance(other, pl.LazyFrame):
@@ -88,7 +93,7 @@ class _Model(pl.LazyFrame):
             other_lf = self.__class__(other).lf
         self.lf = pl.concat([self.lf, other_lf], how="diagonal_relaxed")
 
-    def collect(self, *args, **kwargs):
+    def collect(self, *args, **kwargs) -> pl.DataFrame:
         "Transform and collect transformed data as Polars DataFrame"
         lf = transform(self.lf, self.fields)
         return lf.collect(*args, **kwargs)
