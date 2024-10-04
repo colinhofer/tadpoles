@@ -1,6 +1,7 @@
 import polars as pl
 from typing import List, Literal, Dict, Tuple, Any
 from itertools import count
+import re
 from .field import Field
 
 
@@ -9,18 +10,21 @@ NORM_LITS = Literal[
     "explode", "unnest", "unnest-explode", "unnest-first", "explode-first"
 ]
 
+def to_snake(name):
+    return re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
 
-def model_starter(name: str, data: Any, expand: NORM_LITS = None) -> None:
+def model_starter(name: str, data: Any, expand: NORM_LITS = None, expand_columns: list = None) -> None:
     """Prints a basic Tadpoles model class with fields based on the provided data schema."""
     str_replace = [".", " ", "-", "/"]
     ldf = pl.LazyFrame(data, infer_schema_length=None)
-    ldf = normalize(ldf, how=expand) if expand else ldf
+    ldf = normalize(ldf, how=expand, columns=expand_columns) if expand else ldf
     print(f"class {name}(Model):")
     for col, dtype in ldf.collect_schema().items():
-        field = col.lower()
+        dtype = pl.String if dtype == pl.Null else dtype
+        field = to_snake(col)
         for char in str_replace:
             field = field.replace(char, "_")
-        print(f'   {field}: pl.{dtype} = pl.col("{col}")')
+        print(f'    {field}: pl.{dtype} = pl.col("{col}")')
 
 
 def get_expandable(
