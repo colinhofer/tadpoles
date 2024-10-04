@@ -103,8 +103,10 @@ def get_exprs(columns: List[Field], current_schema: pl.Schema):
     return exprs
 
 
-def transform(ldf: pl.LazyFrame, fields: List[Field], max_iterations: int = ITER_MAX):
+def transform(ldf: pl.LazyFrame, fields: List[Field], max_iterations: int = ITER_MAX, drop_null_inputs: bool = True):
     [setattr(col, 'derived', False) for col in fields]
+    if drop_null_inputs:
+        ldf = ldf.select(pl.col('^.*$').exclude(pl.Null))
     lf_schema = ldf.collect_schema()
     for n in count():
         if n > max_iterations:

@@ -14,7 +14,7 @@ def root_replace(expr: pl.Expr, to_replace: str, new_root: str) -> pl.Expr:
 
 class Field:
     """
-    Represents a field in a Tadpoles model and must be given at least one Polars expression. It can also be used to provide a `default` value to fill `null` values,
+    Represents a field in a Tadpoles model. It can also be used to provide a `default` value to fill `null` values,
     or to to flag a primary key column using `primary_key=True` which will add the column to the `py Model.primary_key` list in the model. 
     If a model needs to accept and transform data from different sources with different naming, multiple expressions can be provided to the `tadpoles.Field` object. 
     When deriving columns, the first of these expressions with matching source columns is evaluated.
