@@ -15,10 +15,17 @@ def to_snake(name):
 
 def model_starter(name: str, data: Any, expand: NORM_LITS = None, expand_columns: list = None) -> None:
     """Prints a basic Tadpoles model class with fields based on the provided data schema."""
+    if not isinstance(name, str):
+        raise ValueError("Model name must be a string")
     str_replace = [".", " ", "-", "/"]
     ldf = pl.LazyFrame(data, infer_schema_length=None)
     ldf = normalize(ldf, how=expand, columns=expand_columns) if expand else ldf
     print(f"class {name}(Model):")
+    if expand:
+        print(f'    expand = "{expand}"')
+    if expand_columns:
+        print(f'    expand_columns = "{expand_columns}"')
+    print("\n")
     for col, dtype in ldf.collect_schema().items():
         dtype = pl.String if dtype == pl.Null else dtype
         field = to_snake(col)

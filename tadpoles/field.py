@@ -1,5 +1,5 @@
 import polars as pl
-from typing import List, Any
+from typing import List, Any, Callable
 from io import StringIO
 
 PLACEHOLDER = "__field__"
@@ -42,6 +42,7 @@ class Field:
         primary_key: bool = False,
         dtype: type = pl.Unknown,
         default: Any = None,
+        default_factory: Callable = None
     ) -> None:
         self.exprs: List[pl.Expr] = []
         self.primary_key = primary_key
@@ -51,6 +52,7 @@ class Field:
         self.name = name
         self.derived = False
         self.prepared = False
+        self.default_factory = default_factory
         
 
     def __str__(self) -> str:
@@ -70,6 +72,8 @@ class Field:
 
     @property
     def literal(self):
+        if self.default_factory is not None:
+            return pl.lit(self.default_factory()).cast(self.dtype)
         return pl.lit(self.default).cast(self.dtype)
 
     def value_expr(self, value: Any):
@@ -79,6 +83,8 @@ class Field:
             self.default = value
             expr = pl.col(self.name)
         expr = expr.cast(self.dtype)
+        if self.default_factory is not None:
+            return expr.fill_null(self.default_factory())
         return expr if not self.default else expr.fill_null(self.default)
 
     def prepare(self):
