@@ -34,6 +34,7 @@ class ModelMeta(type):
             fields[key] = col
 
         attrs["fields"] = list(fields.values())
+        attrs["primary_key"] = [field.name for field in fields.values() if field.primary_key]
         return super().__new__(mcs, name, bases, attrs, **kwargs)
 
 
@@ -41,6 +42,7 @@ class _Model(object):
     expand: NORM_LITS = None
     expand_columns: list = None
     fields: List[Field]
+    primary_key: List[str]
 
     def __init__(
         self,
@@ -59,7 +61,7 @@ class _Model(object):
         else:
             lf = pl.LazyFrame(*args, **kwargs)
         self.lf = normalize(lf, how=self.expand, columns=self.expand_columns)
-
+        
     def __repr__(self):
         return f"{self.__class__.__name__}(fields={self.fields})"
 
@@ -76,12 +78,8 @@ class _Model(object):
         return obj
 
     @classmethod
-    def transform(cls, ldf: pl.LazyFrame, **kwargs) -> pl.LazyFrame:
-        return transform(ldf, cls.fields)
-    
-    @property
-    def primary_key(self) -> list:
-        return [col.name for col in self.fields if col.primary_key]
+    def transform(cls, *args, **kwargs) -> pl.LazyFrame:
+        return cls(*args, **kwargs).collect()
 
     def append(self, other) -> None:
         "Add more data to the current model lazyframe"
